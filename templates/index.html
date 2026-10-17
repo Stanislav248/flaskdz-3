@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Trattoria — меню{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <div class="hero-text">
+    <p class="hero-kicker">Смачна їжа, гарний настрій</p>
+    <h1>Де смак<br>зустрічає<br><span>пристрасть</span></h1>
+    <p>Ласкаво просимо до Trattoria. Кожна страва готується з любов'ю та найкращих інгредієнтів.</p>
+    <a class="btn" href="#menu">Дивитись меню</a>
+  </div>
+  <div class="hero-plate" aria-hidden="true"><span>🍝</span></div>
+</section>
+
+<section id="menu" class="menu">
+  <h2 class="section-title">Наше меню</h2>
+  <p class="section-sub">Добірка найкращих страв від нашого шефа</p>
+
+  <div class="filters" role="group" aria-label="Категорії">
+    <button class="chip active" data-cat="all">Усе</button>
+    {% for c in categories %}
+      <button class="chip" data-cat="{{ c }}">{{ c }}</button>
+    {% endfor %}
+  </div>
+
+  <input id="search" class="search" type="search" placeholder="Знайти страву…" autocomplete="off">
+
+  <div class="grid" id="grid">
+    {% for d in menu %}
+    <article class="card" data-cat="{{ d.category }}" data-name="{{ d.name | lower }}">
+      <div class="card-img">{{ d.emoji }}</div>
+      <div class="card-body">
+        <h3>{{ d.name }}</h3>
+        <p>{{ d.desc }}</p>
+        <div class="card-foot">
+          <span class="price">{{ d.price }} ₴</span>
+          <button class="add" data-id="{{ d.id }}" aria-label="Додати {{ d.name }} до кошика">Додати</button>
+        </div>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  <p id="empty" class="empty" hidden>Нічого не знайдено. Спробуйте іншу назву або категорію.</p>
+</section>
+
+<a class="cart-fab" href="{{ url_for('delivery') }}">
+  Оформити доставку · <span data-cart-count>0</span>
+</a>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const chips = document.querySelectorAll('.chip');
+  const cards = document.querySelectorAll('.card');
+  const search = document.getElementById('search');
+  const empty = document.getElementById('empty');
+  let activeCat = 'all';
+
+  function applyFilters() {
+    const q = search.value.trim().toLowerCase();
+    let visible = 0;
+    cards.forEach(card => {
+      const ok = (activeCat === 'all' || card.dataset.cat === activeCat)
+              && card.dataset.name.includes(q);
+      card.hidden = !ok;
+      if (ok) visible++;
+    });
+    empty.hidden = visible > 0;
+  }
+
+  chips.forEach(chip => chip.addEventListener('click', () => {
+    chips.forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    activeCat = chip.dataset.cat;
+    applyFilters();
+  }));
+  search.addEventListener('input', applyFilters);
+
+  document.querySelectorAll('.add').forEach(btn => btn.addEventListener('click', () => {
+    addToCart(btn.dataset.id);
+    btn.textContent = 'Додано ✓';
+    setTimeout(() => btn.textContent = 'Додати', 900);
+  }));
+</script>
+{% endblock %}

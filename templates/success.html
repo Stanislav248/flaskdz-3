@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Замовлення прийнято — Trattoria{% endblock %}
+
+{% block content %}
+<section class="page narrow">
+  <div class="done-mark" aria-hidden="true">✓</div>
+  <h1 class="page-title center">Дякуємо, {{ order.name }}!</h1>
+  <p class="section-sub">Замовлення №{{ order.id }} прийнято. Ми зателефонуємо на {{ order.phone }} для підтвердження.</p>
+
+  <div class="receipt">
+    <ul>
+      {% for it in order['items'] %}
+        <li><span>{{ it.name }} × {{ it.qty }}</span><span>{{ it.price * it.qty }} ₴</span></li>
+      {% endfor %}
+    </ul>
+    <dl class="totals">
+      <div><dt>Доставка</dt><dd>{{ 'Безкоштовно' if order.fee == 0 else order.fee ~ ' ₴' }}</dd></div>
+      <div class="grand"><dt>Разом</dt><dd>{{ order.total }} ₴</dd></div>
+    </dl>
+    <p class="hint">Адреса: {{ order.street }}{% if order.apartment %}, кв. {{ order.apartment }}{% endif %}<br>
+      Оплата: {{ "готівкою" if order.payment == "cash" else "карткою" }} кур'єру</p>
+  </div>
+
+  <a class="btn" href="{{ url_for('index') }}">Повернутись до меню</a>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>localStorage.removeItem(CART_KEY); updateBadge();</script>
+{% endblock %}

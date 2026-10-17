@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}Доставка — Trattoria{% endblock %}
+
+{% macro field_error(name) %}
+  {% if errors.get(name) %}<span class="error">{{ errors[name] }}</span>{% endif %}
+{% endmacro %}
+
+{% block content %}
+<section class="page">
+  <h1 class="page-title">Доставка</h1>
+  <p class="section-sub left">Заповніть дані — кур'єр зателефонує перед приїздом.</p>
+
+  {% if errors.get('cart') %}<p class="alert">{{ errors['cart'] }} <a href="{{ url_for('index') }}">До меню</a></p>{% endif %}
+
+  <form method="post" class="delivery" id="order-form" novalidate>
+    <div class="form-col">
+      <div class="field">
+        <label for="name">Ім'я</label>
+        <input id="name" name="name" value="{{ values.get('name', '') }}" autocomplete="name" required
+               class="{{ 'invalid' if errors.get('name') }}">
+        {{ field_error('name') }}
+      </div>
+
+      <div class="field">
+        <label for="phone">Телефон</label>
+        <input id="phone" name="phone" type="tel" placeholder="+380 67 123 45 67"
+               value="{{ values.get('phone', '') }}" autocomplete="tel" required
+               class="{{ 'invalid' if errors.get('phone') }}">
+        {{ field_error('phone') }}
+      </div>
+
+      <div class="row-2">
+        <div class="field grow">
+          <label for="street">Вулиця і будинок</label>
+          <input id="street" name="street" value="{{ values.get('street', '') }}" autocomplete="street-address" required
+                 class="{{ 'invalid' if errors.get('street') }}">
+          {{ field_error('street') }}
+        </div>
+        <div class="field small">
+          <label for="apartment">Квартира</label>
+          <input id="apartment" name="apartment" value="{{ values.get('apartment', '') }}">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="time">Коли привезти</label>
+        <select id="time" name="time">
+          {% for val, label in [('asap', 'Якнайшвидше (40–60 хв)'), ('1h', 'Через 1 годину'), ('2h', 'Через 2 години')] %}
+            <option value="{{ val }}" {{ 'selected' if values.get('time') == val }}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <fieldset class="field">
+        <legend>Оплата</legend>
+        <label class="radio"><input type="radio" name="payment" value="cash"
+               {{ 'checked' if values.get('payment', 'cash') == 'cash' }}> Готівкою кур'єру</label>
+        <label class="radio"><input type="radio" name="payment" value="card"
+               {{ 'checked' if values.get('payment') == 'card' }}> Карткою кур'єру</label>
+      </fieldset>
+
+      <div class="field">
+        <label for="comment">Коментар до замовлення</label>
+        <textarea id="comment" name="comment" rows="3" placeholder="Код домофона, поверх, побажання…">{{ values.get('comment', '') }}</textarea>
+      </div>
+    </div>
+
+    <aside class="summary">
+      <h2>Ваше замовлення</h2>
+      <ul id="summary-list" class="summary-list"></ul>
+      <p id="summary-empty" class="empty" hidden>Кошик порожній. <a href="{{ url_for('index') }}">Обрати страви</a></p>
+      <dl class="totals">
+        <div><dt>Страви</dt><dd id="t-sub">0 ₴</dd></div>
+        <div><dt>Доставка</dt><dd id="t-fee">0 ₴</dd></div>
+        <div class="grand"><dt>Разом</dt><dd id="t-total">0 ₴</dd></div>
+      </dl>
+      <p class="hint" id="free-hint"></p>
+      <input type="hidden" name="cart" id="cart-field">
+      <button class="btn block" type="submit">Підтвердити замовлення</button>
+    </aside>
+  </form>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const list = document.getElementById('summary-list');
+  const emptyMsg = document.getElementById('summary-empty');
+  const cartField = document.getElementById('cart-field');
+  const money = n => n + ' ₴';
+
+  function render() {
+    const cart = getCart();
+    const ids = Object.keys(cart).filter(id => window.MENU[id] && cart[id] > 0);
+    list.innerHTML = '';
+    let sub = 0;
+
+    ids.forEach(id => {
+      const dish = window.MENU[id];
+      const qty = cart[id];
+      sub += dish.price * qty;
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <span class="s-name">${dish.name}</span>
+        <span class="qty">
+          <button type="button" data-act="dec" data-id="${id}" aria-label="Менше">−</button>
+          <b>${qty}</b>
+          <button type="button" data-act="inc" data-id="${id}" aria-label="Більше">+</button>
+        </span>
+        <span class="s-price">${money(dish.price * qty)}</span>`;
+      list.appendChild(li);
+    });
+
+    emptyMsg.hidden = ids.length > 0;
+    const fee = ids.length === 0 || sub >= CONFIG.freeFrom ? 0 : CONFIG.fee;
+    document.getElementById('t-sub').textContent = money(sub);
+    document.getElementById('t-fee').textContent = fee === 0 && ids.length ? 'Безкоштовно' : money(fee);
+    document.getElementById('t-total').textContent = money(sub + fee);
+    document.getElementById('free-hint').textContent =
+      ids.length && sub < CONFIG.freeFrom
+        ? `Додайте ще на ${CONFIG.freeFrom - sub} ₴ — і доставка буде безкоштовною.` : '';
+
+    cartField.value = JSON.stringify(ids.map(id => ({ id: Number(id), qty: cart[id] })));
+  }
+
+  list.addEventListener('click', e => {
+    const btn = e.target.closest('button[data-act]');
+    if (!btn) return;
+    const cart = getCart();
+    const id = btn.dataset.id;
+    cart[id] = (cart[id] || 0) + (btn.dataset.act === 'inc' ? 1 : -1);
+    if (cart[id] <= 0) delete cart[id];
+    saveCart(cart);
+    render();
+  });
+
+  render();
+</script>
+{% endblock %}
